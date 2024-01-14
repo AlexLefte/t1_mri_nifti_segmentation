@@ -243,6 +243,10 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QApplication):
         selected_file = self.get_nifti_file()
 
         if selected_file:
+            # Clear the workspace
+            if self.volume is not None:
+                self.clear_volume()
+
             # Get the Volume
             self.volume = vu.setup_volume(selected_file, self.vtk_renderer)
 
@@ -359,6 +363,32 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QApplication):
         """
         vu.set_props_opacity(self.volume_slicer_props,
                              0.0)
+
+    def remove_volume_slicers(self):
+        """
+        Removes the volume slicer widgets
+        """
+        for slice_prop in self.volume_slicer_props:
+            self.vtk_renderer.RemoveActor(slice_prop)
+
+    def clear_volume(self):
+        """
+        Removes the volume actors (surface and slice props) from the renderer
+        :return:
+        """
+        # Check the current rendering mode
+        if self.rendering_menu.currentIndex() == 0:
+            # Surface mode -> remove the surface actor from the renderer
+            self.hide_volume_surface()
+        else:
+            # Slice mode -> remove the slicer props from the renderer
+            self.remove_volume_slicers()
+
+        # Reinitialize the slicer props
+        self.volume_slicer_props = []
+
+        # Reinitialize the volume
+        self.volume = None
     # endregion
 
     # region Mask
@@ -370,6 +400,10 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QApplication):
         selected_file = self.get_nifti_file()
 
         if selected_file:
+            # Clear the workspace
+            if self.mask is not None:
+                self.clear_mask()
+
             # Get the Volume
             self.mask = vu.setup_mask(selected_file, self.vtk_renderer)
 
@@ -439,7 +473,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QApplication):
         Hides the segmentation mask rendered surface
         """
         vu.remove_actor(self.vtk_renderer,
-                        self.volume.labels[0].actor)
+                        self.mask.labels[0].actor)
 
     def display_mask_slicers(self):
         """
@@ -458,6 +492,31 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QApplication):
         """
         vu.set_props_opacity(self.mask_slicer_props,
                              0.0)
+
+    def remove_mask_slicers(self):
+        """
+        Removes the mask slicer widgets
+        """
+        for slice_prop in self.mask_slicer_props:
+            self.vtk_renderer.RemoveActor(slice_prop)
+
+    def clear_mask(self):
+        """
+        Removes the mask actors from the renderer
+        """
+        # Check the current rendering mode
+        if self.rendering_menu.currentIndex() == 0:
+            # Surface mode -> remove the surface actor from the renderer
+            self.hide_mask_surface()
+        else:
+            # Slice mode -> remove the slicer props from the renderer
+            self.hide_mask_slicers()
+
+        # Reinitialize the slicer props
+        self.mask_slicer_props = []
+
+        # Reinitialize the volume
+        self.mask = None
 
     # endregion
 
@@ -530,10 +589,13 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QApplication):
         Threshold changed callback
         :param value: threshold level
         """
-        self.process_changes()
-        self.volume.labels[0].extractor.SetValue(0, value)
-        self.vtk_renderer.Render()
-        self.processing = False
+        if not self.processing:
+            self.processing = True
+            self.process_changes()
+            value = self.threshold_box.value()
+            self.volume.labels[0].extractor.SetValue(0, value)
+            self.vtk_renderer.Render()
+            self.processing = False
 
     def volume_opacity_changed(self, value):
         """
@@ -557,9 +619,12 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QApplication):
         Smoothness changed callback
         :param value: smoothness value
         """
-        self.process_changes()
-        self.volume.labels[0].smoother.SetNumberOfIterations(value)
-        self.vtk_render_window.Render()
+        if not self.processing:
+            self.processing = True
+            self.process_changes()
+            self.volume.labels[0].smoother.SetNumberOfIterations(value)
+            self.vtk_render_window.Render()
+            self.processing = False
 
     def intensity_changed(self, value):
         """
@@ -678,11 +743,9 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QApplication):
         """
         Processes threshold/smoothness changes avoiding blocking and excessive calls
         """
-        if not self.processing:
-            self.processing = True
-            for _ in range(10):
-                self.app.processEvents()
-                time.sleep(0.1)
+        for _ in range(10):
+            self.app.processEvents()
+            time.sleep(0.2)
     # endregion
 
     # region View orientation
