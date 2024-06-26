@@ -6,5 +6,7 @@ import sys
 # =============================================================================
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
+    # app.setStyle('Fusion')
     window = MainWindow(app)
+    window.showMaximized()
     sys.exit(app.exec_())

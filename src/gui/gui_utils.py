@@ -2,6 +2,18 @@ import PyQt5.QtCore as Qt
 import PyQt5.QtWidgets as QtWidgets
 
 
+def create_button(title):
+    """
+    Creates a button
+    :param title:
+    :param handler:
+    :return:
+    """
+    button = QtWidgets.QPushButton(title)
+    button.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+    return button
+
+
 def create_separator():
     """
     Creates a separator line

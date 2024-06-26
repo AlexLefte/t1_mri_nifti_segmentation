@@ -1,4 +1,6 @@
 import vtk
+from vtkmodules.vtkRenderingVolumeOpenGL2 import vtkSmartVolumeMapper
+
 from src.nii_utils import *
 from src.config import *
 import numpy
@@ -36,7 +38,7 @@ def create_polygon_reducer(extractor):
     """
     reducer = vtk.vtkDecimatePro()
     reducer.SetInputConnection(extractor.GetOutputPort())
-    reducer.SetTargetReduction(0.5)  # magic number
+    reducer.SetTargetReduction(0.35)
     reducer.PreserveTopologyOn()
     return reducer
 
@@ -112,7 +114,8 @@ def display_actor(renderer: vtk.vtkRenderer,
                   actor: vtk.vtkActor):
     """
     Adds actor to renderer
-    :param renderer: Renderer
+    :param renderer: R
+    enderer
     :param actor: Actor to be displayed
     """
     renderer.AddActor(actor)
@@ -135,8 +138,16 @@ def get_volume_extractor(volume: Volume):
     :param volume: a vtkNIFTIImageReader volume containing the brain
     :return: the extracted volume from vtkFlyingEdges3D
     """
+    shrink = vtk.vtkImageShrink3D()
+    shrink.SetInputConnection(volume.reader.GetOutputPort())
+    shrink.SetShrinkFactors(2, 2, 2)
+    shrink.Update()
+
     volume_extractor = vtk.vtkFlyingEdges3D()
-    volume_extractor.SetInputConnection(volume.reader.GetOutputPort())
+    # volume_extractor.SetInputConnection(volume.reader.GetOutputPort())
+    volume_extractor.SetInputConnection(shrink.GetOutputPort())
+    volume_extractor.ComputeNormalsOff()
+    volume_extractor.Update()
     return volume_extractor
 
 
@@ -148,8 +159,16 @@ def get_mask_extractor(mask: Volume):
     :param mask: a vtkNIFTIImageReader volume containing the mask
     :return: the extracted volume from vtkDiscreteMarchingCubes
     """
+    # shrink = vtk.vtkImageShrink3D()
+    # shrink.SetInputConnection(mask.reader.GetOutputPort())
+    # shrink.SetShrinkFactors(2, 2, 2)
+    # shrink.Update()
+
     mask_extractor = vtk.vtkDiscreteMarchingCubes()
     mask_extractor.SetInputConnection(mask.reader.GetOutputPort())
+    # mask_extractor.SetInputConnection(shrink.GetOutputPort())
+    mask_extractor.ComputeNormalsOff()
+    # mask_extractor.SetNumberOfThreads(vtk.vtkMultiThreader.GlobalDefaultNumberOfThreads())
     return mask_extractor
 
 
@@ -195,7 +214,7 @@ def setup_volume(file: str,
     lut.SetTableRange(scalar_range)
     lut.SetSaturationRange(0, 0)
     lut.SetHueRange(0, 0)
-    lut.SetValueRange(0, 2)
+    lut.SetValueRange(0, 1)
     lut.Build()
 
     view_colors = vtk.vtkImageMapToColors()
@@ -269,9 +288,11 @@ def setup_mask(file: str,
     lut.SetNumberOfTableValues(int(scalar_range[1])+1)
     lut.SetTableRange(scalar_range)
 
+    lut.SetTableValue(0, 0, 0, 0, 0.0)
     for key, value in MASK_COLORS.items():
         r, g, b = value
         lut.SetTableValue(key, r, g, b, 1.0)
+
     # lut.IndexedLookupOn()
     lut.Build()
 
@@ -308,7 +329,7 @@ def setup_slicer(renderer: vtk.vtkRenderer,
     axial_prop.SetOpacity(0)
     axial.SetProperty(axial_prop)
     axial.GetMapper().SetInputConnection(obj.image_mapper.GetOutputPort())
-    axial.SetDisplayExtent(0, x, 0, y, int(z / 2), int(z / 2))
+    axial.SetDisplayExtent(0, x, 0, y, int(z/2), int(z/2))
     axial.InterpolateOn()
     axial.ForceOpaqueOn()
 
@@ -318,7 +339,7 @@ def setup_slicer(renderer: vtk.vtkRenderer,
     cor_prop.SetOpacity(0)
     coronal.SetProperty(cor_prop)
     coronal.GetMapper().SetInputConnection(obj.image_mapper.GetOutputPort())
-    coronal.SetDisplayExtent(0, x, int(y / 2), int(y / 2), 0, z)
+    coronal.SetDisplayExtent(0, x, int(y/2), int(y/2), 0, z)
     coronal.InterpolateOn()
     coronal.ForceOpaqueOn()
 
@@ -328,11 +349,11 @@ def setup_slicer(renderer: vtk.vtkRenderer,
     sag_prop.SetOpacity(0)
     sagittal.SetProperty(sag_prop)
     sagittal.GetMapper().SetInputConnection(obj.image_mapper.GetOutputPort())
-    sagittal.SetDisplayExtent(int(x / 2), int(x / 2), 0, y, 0, z)
+    sagittal.SetDisplayExtent(int(x/2), int(x/2), 0, y, 0, z)
     sagittal.InterpolateOn()
     sagittal.ForceOpaqueOn()
 
-# Add actors to the renderer
+    # Add actors to the renderer
     renderer.AddActor(axial)
     renderer.AddActor(coronal)
     renderer.AddActor(sagittal)
@@ -367,7 +388,7 @@ def create_luts(volume):
     gray_scale_lut.SetTableRange(scalar_range)
     gray_scale_lut.SetSaturationRange(0, 0)
     gray_scale_lut.SetHueRange(0, 0)
-    gray_scale_lut.SetValueRange(0, 2)
+    gray_scale_lut.SetValueRange(0, 1)
     gray_scale_lut.Build()
     luts.append(gray_scale_lut)
 
@@ -399,7 +420,7 @@ def create_luts(volume):
         high_contrast_lut.SetTableValue(i * 16 + 1, 0, 1, 0, 1)
         high_contrast_lut.SetTableValue(i * 16 + 2, 0, 0, 1, 1)
         high_contrast_lut.SetTableValue(i * 16 + 3, 0, 0, 0, 1)
-    luts.append(high_contrast_lut)
+    # luts.append(high_contrast_lut)
 
     return luts
 # endregion

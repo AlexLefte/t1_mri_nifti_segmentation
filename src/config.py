@@ -1,6 +1,7 @@
 import csv
 
 TSV_FILE_PATH = 'data/FastSurfer_ColorLUT_95_classes.tsv'
+# TSV_FILE_PATH = 'data/FastSurfer_ColorLUT.tsv'
 ICON_PATH = 'images/logo.png'
 
 
@@ -42,7 +43,7 @@ def get_mask_colors():
 
 # default brain settings
 BRAIN_SMOOTHNESS = 500
-BRAIN_OPACITY = 20
+BRAIN_OPACITY = 100
 BRAIN_COLORS = [(1.0, 0.9, 0.9)]
 
 # default mask settings
