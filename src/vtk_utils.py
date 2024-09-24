@@ -1,113 +1,69 @@
 import vtk
 from vtkmodules.vtkRenderingVolumeOpenGL2 import vtkSmartVolumeMapper
 
-from src.nii_utils import *
+from src.volume_utils import *
 from src.config import *
 import numpy
 
 
-def add_surface_rendering(nii_object, label_idx, label_value):
+def add_surface_rendering(volume, label_idx, label_value):
     """
-    Renders the surface
-    :param nii_object: the volume to be rendered
-    :param label_idx: the label index
-    :param label_value: the label value
-    """
-    nii_object.labels[label_idx].extractor.SetValue(0, label_value)
-    nii_object.labels[label_idx].extractor.Update()
+    Renders the surface for a given label in the volume.
 
-    # Check if there is any label_idx data
-    if nii_object.labels[label_idx].extractor.GetOutput().GetMaxCellSize():
-        reducer = create_polygon_reducer(nii_object.labels[label_idx].extractor)
-        smoother = create_smoother(reducer, nii_object.labels[label_idx].smoothness)
-        normals = create_normals(smoother)
-        actor_mapper = create_mapper(normals)
-        actor_property = create_property(nii_object.labels[label_idx].opacity, nii_object.labels[label_idx].color)
-        actor = create_actor(actor_mapper, actor_property)
-        nii_object.labels[label_idx].actor = actor
-        nii_object.labels[label_idx].smoother = smoother
-        nii_object.labels[label_idx].property = actor_property
+    Parameters
+    ----------
+    volume : Volume
+        The volume object containing the data to be rendered.
+    label_idx : int
+        The index of the label to be rendered.
+    label_value : float
+        The value of the label to be rendered.
 
+    Returns
+    -------
+    None
+    """
+    # Set the label value for the extractor and update it
+    volume.labels[label_idx].extractor.SetValue(0, label_value)
+    volume.labels[label_idx].extractor.Update()
 
-def create_polygon_reducer(extractor):
-    """
-    Reduces the number of polygons (triangles) in the volume. This is used to speed up rendering.
-    (https://www.vtk.org/doc/nightly/html/classvtkDecimatePro.html)
-    :param extractor: an extractor (vtkPolyDataAlgorithm), will be either vtkFlyingEdges3D or vtkDiscreteMarchingCubes
-    :return: the decimated volume
-    """
-    reducer = vtk.vtkDecimatePro()
-    reducer.SetInputConnection(extractor.GetOutputPort())
-    reducer.SetTargetReduction(0.35)
-    reducer.PreserveTopologyOn()
-    return reducer
+    # Check if there is any data in the extractor output
+    if volume.labels[label_idx].extractor.GetOutput().GetMaxCellSize():
+        # Reduce the number of polygons (triangles) in the volume => Speeds up rendering
+        reducer = vtk.vtkDecimatePro()
+        reducer.SetInputConnection(volume.labels[label_idx].extractor.GetOutputPort())
+        reducer.SetTargetReduction(0.35)
+        reducer.PreserveTopologyOn()
 
+        # Smooth the render edges
+        smoother = vtk.vtkSmoothPolyDataFilter()
+        smoother.SetInputConnection(reducer.GetOutputPort())
+        smoother.SetNumberOfIterations(volume.labels[label_idx].smoothness)
 
-def create_smoother(reducer, smoothness):
-    """
-    Reorients some points in the volume to smooth the render edges.
-    (https://www.vtk.org/doc/nightly/html/classvtkSmoothPolyDataFilter.html)
-    :param reducer:
-    :param smoothness:
-    :return:
-    """
-    smoother = vtk.vtkSmoothPolyDataFilter()
-    smoother.SetInputConnection(reducer.GetOutputPort())
-    smoother.SetNumberOfIterations(smoothness)
-    return smoother
+        # Compute polygon normals for better rendering quality
+        normals = vtk.vtkPolyDataNormals()
+        normals.SetInputConnection(smoother.GetOutputPort())
+        normals.SetFeatureAngle(60.0)
 
+        # Create the mapper => Converts the data into a format that can be displayed
+        actor_mapper = vtk.vtkPolyDataMapper()
+        actor_mapper.SetInputConnection(normals.GetOutputPort())
+        actor_mapper.ScalarVisibilityOff()
 
-def create_normals(smoother):
-    """
-    The filter can reorder polygons to insure consistent orientation across polygon neighbors. Sharp edges can be split
-    and points duplicated with separate normals to give crisp (rendered) surface definition.
-    (https://www.vtk.org/doc/nightly/html/classvtkPolyDataNormals.html)
-    :param smoother:
-    :return:
-    """
-    brain_normals = vtk.vtkPolyDataNormals()
-    brain_normals.SetInputConnection(smoother.GetOutputPort())
-    brain_normals.SetFeatureAngle(60.0)  #
-    return brain_normals
+        # Create the property => Sets visual properties (opacity, color)
+        actor_property = vtk.vtkProperty()
+        actor_property.SetOpacity(volume.labels[label_idx].opacity)
+        actor_property.SetColor(volume.labels[label_idx].color)
 
+        # Create the actor => Represents the data in the scene
+        actor = vtk.vtkActor()
+        actor.SetMapper(actor_mapper)
+        actor.SetProperty(actor_property)
 
-def create_mapper(stripper):
-    """
-    Creates a mapper given the stripper
-    :param stripper: vtkPolyDataNormals-type object
-    :return vtkPolyDataMapper-type object
-    """
-    mapper = vtk.vtkPolyDataMapper()
-    mapper.SetInputConnection(stripper.GetOutputPort())
-    mapper.ScalarVisibilityOff()
-    mapper.Update()
-    return mapper
-
-
-def create_property(opacity, color):
-    """
-    Creates a vtk property
-    :param opacity: opacity level
-    :param color: color
-    :return: vtkProperty-type object
-    """
-    prop = vtk.vtkProperty()
-    prop.SetColor(color[0], color[1], color[2])
-    prop.SetOpacity(opacity)
-    return prop
-
-
-def create_actor(mapper, prop):
-    """
-    Creates a vtk actor
-    :param mapper: vtk mapper
-    :param prop: vtk property
-    :return: vtk actor
-    """
-    actor = vtk.vtkActor()
-    actor.SetMapper(mapper)
-    actor.SetProperty(prop)
-    return actor
+        # Store the actor, smoother, and property in the volume label
+        volume.labels[label_idx].actor = actor
+        volume.labels[label_idx].smoother = smoother
+        volume.labels[label_idx].property = actor_property
 
 
 def display_actor(renderer: vtk.vtkRenderer,
@@ -131,26 +87,6 @@ def remove_actor(renderer: vtk.vtkRenderer,
     renderer.RemoveActor(actor)
 
 
-def get_volume_extractor(volume: Volume):
-    """
-    Given the output from volume (vtkNIFTIImageReader) extract it into 3D using
-    vtkFlyingEdges3D algorithm (https://www.vtk.org/doc/nightly/html/classvtkFlyingEdges3D.html)
-    :param volume: a vtkNIFTIImageReader volume containing the brain
-    :return: the extracted volume from vtkFlyingEdges3D
-    """
-    shrink = vtk.vtkImageShrink3D()
-    shrink.SetInputConnection(volume.reader.GetOutputPort())
-    shrink.SetShrinkFactors(2, 2, 2)
-    shrink.Update()
-
-    volume_extractor = vtk.vtkFlyingEdges3D()
-    # volume_extractor.SetInputConnection(volume.reader.GetOutputPort())
-    volume_extractor.SetInputConnection(shrink.GetOutputPort())
-    volume_extractor.ComputeNormalsOff()
-    volume_extractor.Update()
-    return volume_extractor
-
-
 def get_mask_extractor(mask: Volume):
     """
     Given the output from mask (vtkNIFTIImageReader) extract it into 3D using
@@ -172,7 +108,7 @@ def get_mask_extractor(mask: Volume):
     return mask_extractor
 
 
-def read_volume(file: str):
+def create_file_reader(file: str):
     """
     Returns the vtkNIFTIIImageReader instance
     :param file: file path
@@ -190,25 +126,46 @@ def setup_volume(file: str,
                  renderer: vtk.vtkRenderer):
     """
     Sets up the volume
-    :param file: file path
-    :param renderer: vtk renderer
-    :return: volume
+
+    Parameters
+    ----------
+    file: str
+        The file path to the NIfTI file.
+    renderer: vtk.vtkRenderer
+        The VTK renderer to use for rendering the volume.
+
+    Returns
+    -------
+    Volume
+        The configured volume object.
     """
+    # Initialize the Volume type object
     volume = Volume()
-    volume.file = file
-    volume.reader = read_volume(file)
 
-    # Check and fix orientation
-    # current_orientation_matrix = get_orientation(file)
-    # print(f"Current orientation: {current_orientation_matrix}")
-    # # Set the desired orientation
-    # desired_orientation = numpy.eye(4)  # Replace with the desired orientation
-    # volume.reorient = set_orientation(volume.reader, file, desired_orientation)
+    # Create the VTK NIfTI image reader
+    volume.reader = create_file_reader(file)
 
-    volume.labels.append(NiiLabel(BRAIN_COLORS[0], BRAIN_OPACITY, BRAIN_SMOOTHNESS))
-    volume.labels[0].extractor = get_volume_extractor(volume)
+    # Append the label corresponding to the MRI image
+    volume.labels.append(Label(BRAIN_COLOR, BRAIN_OPACITY, BRAIN_SMOOTHNESS))
+
+    # Create and configure the VTK image shrink filter => Subsamples the volume
+    shrink = vtk.vtkImageShrink3D()
+    shrink.SetInputConnection(volume.reader.GetOutputPort())
+    shrink.SetShrinkFactors(2, 2, 2)
+    shrink.Update()
+
+    # Create and configure the VTK volume extractor => Generates the surface
+    # from the volumetric data
+    volume_extractor = vtk.vtkFlyingEdges3D()
+    volume_extractor.SetInputConnection(shrink.GetOutputPort())
+    volume_extractor.ComputeNormalsOff()
+    volume_extractor.Update()
+    volume.labels[0].extractor = volume_extractor
+
+    # Store the data extent for future use
     volume.extent = volume.reader.GetDataExtent()
 
+    # Set up the lookup table (LUT) for color mapping
     scalar_range = volume.reader.GetOutput().GetScalarRange()
     lut = vtk.vtkLookupTable()
     lut.SetTableRange(scalar_range)
@@ -217,6 +174,7 @@ def setup_volume(file: str,
     lut.SetValueRange(0, 1)
     lut.Build()
 
+    # Map the image data to colors using the lookup table
     view_colors = vtk.vtkImageMapToColors()
     view_colors.SetInputConnection(volume.reader.GetOutputPort())
     view_colors.SetLookupTable(lut)
@@ -224,87 +182,60 @@ def setup_volume(file: str,
     volume.image_mapper = view_colors
     volume.scalar_range = scalar_range
 
+    # Add surface rendering
     add_surface_rendering(volume, 0, sum(scalar_range) / 2)
     return volume
-
-
-def get_orientation(nifti_file):
-    """
-    Get the orientation of the NIfTI volume, based on the QFormMatrix
-    :param nifti_file: NIfTI file's path
-    :return: the orientation matrix
-    """
-    reader = vtk.vtkNIFTIImageReader()
-    reader.SetFileName(nifti_file)
-    reader.Update()
-
-    orientation_matrix = reader.GetQFormMatrix()
-
-    return orientation_matrix
-
-
-def set_orientation(reader, new_orientation):
-    """
-    Attempts to set the desired orientation
-    :param reader: vtk NIfTI reader
-    :param new_orientation: desired orientation matrix
-    :return: reorient vtk block
-    """
-    current_orientation_matrix = reader.GetQFormMatrix()
-
-    # Check if the current and new orientations are different
-    if not numpy.array_equal(current_orientation_matrix, new_orientation):
-        # Create a filter to reorient the image
-        reorient = vtk.vtkImageReslice()
-        reorient.SetInputConnection(reader.GetOutputPort())
-
-        # Set the desired orientation
-        reorient.SetResliceAxesDirectionCosines(new_orientation[:3, :3].flatten())
-        reorient.Update()
-        return reorient
-    else:
-        print("Image is already in the desired orientation.")
 
 
 def setup_mask(file: str,
                renderer: vtk.vtkRenderer):
     """
-    Sets up the mask
-    :param file: file path
-    :param renderer: vtk renderer
-    :return: mask
-    """
-    mask = Volume()
-    mask.file = file
-    mask.reader = read_volume(mask.file)
-    mask.extent = mask.reader.GetDataExtent()
-    scalar_range = mask.reader.GetOutput().GetScalarRange()
-    n_labels = int(mask.reader.GetOutput().GetScalarRange()[1])
-    # n_labels = n_labels if n_labels <= 10 else 10
+    Sets up the segmentation mask
 
+    Parameters
+    ----------
+    file: str
+        The file path to the NIfTI file.
+    renderer: vtk.vtkRenderer
+        The VTK renderer to use for rendering the mask.
+
+    Returns
+    -------
+    Mask
+        The configured mask object.
+    """
+    # Initialize the mask Volume type object
+    mask = Volume()
+
+    # Create the VTK NIfTI image reader => Reads the NIfTI file
+    mask.reader = create_file_reader(file)
+
+    # Save the data extent for future use
+    mask.extent = mask.reader.GetDataExtent()
+
+    # Set up the lookup table (LUT) for color mapping
+    # Mask colors => dictionary containing the RGB color code for each class
+    scalar_range = mask.reader.GetOutput().GetScalarRange()
     lut = vtk.vtkLookupTable()
-    table_size = len(MASK_COLORS) + 1
-    # lut.SetNumberOfColors(table_size)
     lut.SetNumberOfTableValues(int(scalar_range[1])+1)
     lut.SetTableRange(scalar_range)
-
     lut.SetTableValue(0, 0, 0, 0, 0.0)
     for key, value in MASK_COLORS.items():
         r, g, b = value
         lut.SetTableValue(key, r, g, b, 1.0)
-
-    # lut.IndexedLookupOn()
     lut.Build()
 
-    view_colors = vtk.vtkImageMapToColors()
-    view_colors.SetInputConnection(mask.reader.GetOutputPort())
-    view_colors.SetLookupTable(lut)
-    view_colors.Update()
-    mask.image_mapper = view_colors
+    # Map the image data to colors using the lookup table => Applies the LUT to the mask
+    image_mapper = vtk.vtkImageMapToColors()
+    image_mapper.SetInputConnection(mask.reader.GetOutputPort())
+    image_mapper.SetLookupTable(lut)
+    image_mapper.Update()
+    mask.image_mapper = image_mapper
     mask.scalar_range = scalar_range
 
+    # Add surface rendering for each anatomical structure
     for i, label_idx in enumerate(MASK_COLORS.keys()):
-        mask.labels.append(NiiLabel(MASK_COLORS[label_idx], MASK_OPACITY, MASK_SMOOTHNESS))
+        mask.labels.append(Label(MASK_COLORS[label_idx], MASK_OPACITY, MASK_SMOOTHNESS))
         mask.labels[i].extractor = get_mask_extractor(mask)
         add_surface_rendering(mask, i, label_idx)
     return mask
@@ -313,15 +244,22 @@ def setup_mask(file: str,
 def setup_slicer(renderer: vtk.vtkRenderer,
                  obj: Volume):
     """
-    Sets up the slicing widgets
-    :param renderer: vtkRenderer-type object
-    :param obj: The volume to be sliced
-    :return: the list of slicing actors
+    Sets up the slicing widgets for visualizing different planes of a 3D volume.
+
+    Parameters
+    ----------
+    renderer : vtk.vtkRenderer
+        The VTK renderer responsible for rendering the slicing actors.
+    obj : Volume
+        The volume to be sliced, containing the image data and its properties.
+
+    Returns
+    -------
+    list
+        A list of slicing actors (axial, coronal, sagittal).
     """
-    # Get the object's extent
-    x = obj.extent[1]
-    y = obj.extent[3]
-    z = obj.extent[5]
+    # Get the extent of the volume (dimensions in each direction)
+    _, x, _, y, _, z = obj.extent
 
     # Create the axial slicing actor
     axial = vtk.vtkImageActor()
@@ -353,11 +291,12 @@ def setup_slicer(renderer: vtk.vtkRenderer,
     sagittal.InterpolateOn()
     sagittal.ForceOpaqueOn()
 
-    # Add actors to the renderer
+    # Add the slicing actors to the renderer
     renderer.AddActor(axial)
     renderer.AddActor(coronal)
     renderer.AddActor(sagittal)
 
+    # Return the list of slicing actors
     return [axial, coronal, sagittal]
 
 

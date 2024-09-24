@@ -1,7 +1,6 @@
 import torch
 from torch import nn
 from src.model.src.models.submodules import *
-from src.model.src.models.crfasrnn_pytorch.crfasrnn.crfrnn import CrfRnn
 
 
 # Define the FCNN architecture
@@ -97,23 +96,3 @@ class FCnnModel(nn.Module):
         # 4. Final classification layer: applies the final convolution to produce the output.
         x_final = self.classifier(x_dec1)
         return x_final
-
-
-# Define the FCNN + CRF-RNN architectur
-class FCnnCRF(FCnnModel):
-    """
-    Model architecture that consists of a U-net architecture (FCNN) + an RNN network (CRF)
-    """
-    def __init__(self,
-                 params: dict,
-                 image_dims: tuple):
-        super().__init__(params)
-        self.crf_rnn = CrfRnn(num_labels=params['num_classes'],
-                              num_iterations=5)
-
-    def forward(self,
-                x):
-        output = super(FCnnModel, self).forward(x)
-        output = self.crf_rnn(x, output)
-        return output
-

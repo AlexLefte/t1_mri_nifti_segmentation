@@ -1,15 +1,22 @@
 import csv
 
 TSV_FILE_PATH = 'data/FastSurfer_ColorLUT_95_classes.tsv'
-# TSV_FILE_PATH = 'data/FastSurfer_ColorLUT.tsv'
 ICON_PATH = 'images/logo.png'
 
 
 def is_convertible_to_int(value):
     """
     Checks whether a variable is convertible to int
-    :param value: The value to be converted
-    :return: True if convertible, False otherwise
+
+    Parameters
+    ----------
+    value : any
+        The value to be converted
+
+    Returns
+    -------
+    bool
+        True if convertible, False otherwise
     """
     try:
         _ = int(value)
@@ -21,7 +28,11 @@ def is_convertible_to_int(value):
 def get_mask_colors():
     """
     Gets the segmentation masks' lookup table
-    :return:
+
+    Returns
+    -------
+    dict
+        A dictionary with index as keys and (r, g, b) tuples as values
     """
     rgb_values = {}
 
@@ -41,12 +52,12 @@ def get_mask_colors():
     return rgb_values
 
 
-# default brain settings
+# Default brain settings
 BRAIN_SMOOTHNESS = 500
 BRAIN_OPACITY = 100
-BRAIN_COLORS = [(1.0, 0.9, 0.9)]
+BRAIN_COLOR = (1.0, 0.9, 0.9)
 
-# default mask settings
+# Default mask settings
 MASK_SMOOTHNESS = 500
 MASK_COLORS = get_mask_colors()
 MASK_OPACITY = 100

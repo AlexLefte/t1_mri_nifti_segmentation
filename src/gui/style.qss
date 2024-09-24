@@ -1,0 +1,72 @@
+QMainWindow {
+    background-color: #ffffff;
+}
+QPushButton {
+    background-color: #3b9ebf;
+    color: white;
+    border-radius: 1px;
+    padding: 5px;
+}
+QPushButton:hover {
+    background-color: #ffffff;
+    color: #3b9ebf;
+    border: 2px solid #3b9ebf;
+}
+QFrame {
+    background-color: #ffffff;
+}
+
+QDoubleSpinBox {
+    border: 2px solid #3b9ebf;
+    background: white;
+}
+QDoubleSpinBox::hover {
+    border: 2px solid #000080;
+    background: #d3d3d3;
+}
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+}
+
+QDoubleSpinBox::up-button {
+    width: 16px;  /* Width of the up-button */
+    height: 16px; /* Height of the up-button, ensuring it's square */
+    border-bottom: none;
+}
+
+QDoubleSpinBox::down-button {
+    width: 16px;
+    height: 16px;
+    border-top: none;
+}
+
+QDoubleSpinBox::up-arrow, QDoubleSpinBox::down-arrow {
+    width: 10px;
+    height: 10px;
+}
+
+QDoubleSpinBox::up-arrow {
+    image: url('images/arrow_up.png');
+}
+
+QComboBox {
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    padding: 5px;
+    background: white;
+    min-width: 150px;
+}
+QComboBox:hover {
+    border-color: #3498db;
+}
+QComboBox::drop-down {
+    border-image: none;  /* Nu afișează nicio imagine */
+    width: 0px;
+}
+QComboBox QAbstractItemView {
+    border: 2px solid #3498db;
+    selection-background-color: #bdc3c7;
+    color: #2c3e50;
+    background-color: white;
+}

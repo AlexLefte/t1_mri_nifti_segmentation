@@ -1,6 +1,6 @@
 import torch
 from torch import Tensor, nn
-import src.data.data_utils as du
+import src.model.src.data.data_utils as du
 import numpy as np
 
 from torch.nn.modules.loss import _Loss
