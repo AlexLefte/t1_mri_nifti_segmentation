@@ -515,12 +515,12 @@ if __name__ == '__main__':
                         default='cuda',
                         help='Device to perform inference on.')
 
-    parser.add_argument('--cfg',
+    parser.add_argument('--config_path',
                         type=str,
                         default='config/config.json',
                         help='Path to config file')
 
-    parser.add_argument('--lut',
+    parser.add_argument('--lut_path',
                         type=str,
                         default='config/FastSurfer_ColorLUT.tsv')
 
