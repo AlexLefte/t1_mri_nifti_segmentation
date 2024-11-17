@@ -5,7 +5,6 @@ This project provides a **Python-based GUI** developed with **PyQt** to perform 
 
 The GUI allows users to load MRI scans, perform segmentation, and visualize results interactively.  
 
-![GUI Preview](images/preview_1.png)
 ![GUI Preview](images/preview_2.png)
 
 ---
